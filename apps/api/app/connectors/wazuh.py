@@ -89,7 +89,7 @@ class WazuhConnector:
 
         base_url = api_url.rstrip("/")
         with httpx.Client(base_url=base_url, timeout=20, verify=verify_tls) as client:
-            token_response = client.get("/security/user/authenticate", auth=(username, password), params={"raw": "true"})
+            token_response = client.post("/security/user/authenticate", auth=(username, password), params={"raw": "true"})
             token_response.raise_for_status()
             token = token_response.text.strip().strip('"')
             if not token:

@@ -38,18 +38,6 @@ class FakeWazuhHandler(BaseHTTPRequestHandler):
             self._send_json({"cluster_name": "fake-wazuh-indexer", "version": {"number": "4.9.0"}})
             return
 
-        if self.path.startswith("/security/user/authenticate"):
-            if auth != expected_basic:
-                self._send_json({"error": "unauthorized"}, status=401)
-                return
-            token = b"fake-jwt"
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.send_header("Content-Length", str(len(token)))
-            self.end_headers()
-            self.wfile.write(token)
-            return
-
         if self.path == "/agents/summary/status":
             if auth != "Bearer fake-jwt":
                 self._send_json({"error": "unauthorized"}, status=401)
@@ -68,6 +56,14 @@ class FakeWazuhHandler(BaseHTTPRequestHandler):
         expected_basic = "Basic " + base64.b64encode(b"admin:secret").decode("ascii")
         if auth != expected_basic:
             self._send_json({"error": "unauthorized"}, status=401)
+            return
+        if self.path.startswith("/security/user/authenticate"):
+            token = b"fake-jwt"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(token)))
+            self.end_headers()
+            self.wfile.write(token)
             return
         if self.path.endswith("/_search"):
             self._send_json(
@@ -136,7 +132,7 @@ def test_wazuh_connector_uses_real_http_for_indexer_and_manager():
     assert result["auth"] == "jwt"
     assert result["agents_summary"]["active"] == 1
     assert ("GET", "/", "Basic " + base64.b64encode(b"admin:secret").decode("ascii")) in FakeWazuhHandler.calls
-    assert any(call[1].startswith("/security/user/authenticate") for call in FakeWazuhHandler.calls)
+    assert any(call[0] == "POST" and call[1].startswith("/security/user/authenticate") for call in FakeWazuhHandler.calls)
     assert ("GET", "/agents/summary/status", "Bearer fake-jwt") in FakeWazuhHandler.calls
 
 

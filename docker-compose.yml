@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cyber_chatops
+      POSTGRES_USER: cyber
+      POSTGRES_PASSWORD: cyber
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyber -d cyber_chatops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    environment:
+      APP_NAME: Cyber ChatOps MVP
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://cyber:cyber@postgres:5432/cyber_chatops
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      ALLOWED_HOSTS: '["localhost","127.0.0.1","api"]'
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-demo-internal-key}
+      WAZUH_SHARED_SECRET: ${WAZUH_SHARED_SECRET:-demo-wazuh-secret}
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-demo-change-this-secret-before-production}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+      VELOCIRAPTOR_MODE: mock
+      VELOCIRAPTOR_BASE_URL: https://velociraptor.example.invalid
+      VELOCIRAPTOR_API_KEY: changeme
+      AI_PROVIDER: mock
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      API_BASE_URL: http://api:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-demo-internal-key}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-demo-change-this-session-secret}
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

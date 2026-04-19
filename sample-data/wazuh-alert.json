@@ -1,0 +1,20 @@
+{
+  "id": "wazuh-demo-001",
+  "timestamp": "2026-04-15T10:00:00Z",
+  "rule": {
+    "id": "100200",
+    "level": 9,
+    "description": "Suspicious PowerShell download command",
+    "groups": ["windows", "powershell", "execution"]
+  },
+  "agent": {
+    "id": "007",
+    "name": "win-demo-01"
+  },
+  "data": {
+    "srcip": "10.10.20.15",
+    "destip": "185.199.108.153"
+  },
+  "location": "WinEvtLog",
+  "full_log": "powershell.exe -nop -w hidden -enc ..."
+}

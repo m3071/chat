@@ -9,6 +9,9 @@ on:
 jobs:
   windows-exe:
     runs-on: windows-latest
+    env:
+      WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
+      WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -18,12 +21,12 @@ jobs:
         shell: cmd
         run: build-exe.bat
       - name: Optional code signing
-        if: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 != '' && secrets.WINDOWS_SIGNING_CERT_PASSWORD != '' }}
+        if: ${{ env.WINDOWS_SIGNING_CERT_BASE64 != '' && env.WINDOWS_SIGNING_CERT_PASSWORD != '' }}
         shell: powershell
         run: |
           $certPath = "$env:RUNNER_TEMP\codesign.pfx"
-          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String("${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}"))
-          & signtool sign /f $certPath /p "${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\CyberRed\CyberRed.exe
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
+          & signtool sign /f $certPath /p "$env:WINDOWS_SIGNING_CERT_PASSWORD" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\CyberRed\CyberRed.exe
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --no-progress -y
@@ -31,18 +34,18 @@ jobs:
         shell: cmd
         run: build-installer.bat
       - name: Optional installer signing
-        if: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 != '' && secrets.WINDOWS_SIGNING_CERT_PASSWORD != '' }}
+        if: ${{ env.WINDOWS_SIGNING_CERT_BASE64 != '' && env.WINDOWS_SIGNING_CERT_PASSWORD != '' }}
         shell: powershell
         run: |
           $certPath = "$env:RUNNER_TEMP\codesign.pfx"
           if (-not (Test-Path $certPath)) {
-            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String("${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}"))
+            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
           }
-          & signtool sign /f $certPath /p "${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\CyberRedSetup.exe
+          & signtool sign /f $certPath /p "$env:WINDOWS_SIGNING_CERT_PASSWORD" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\CyberRedSetup.exe
       - name: Create archive
         shell: powershell
         env:
-          HAS_SIGNING_CERT: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 != '' && secrets.WINDOWS_SIGNING_CERT_PASSWORD != '' }}
+          HAS_SIGNING_CERT: ${{ env.WINDOWS_SIGNING_CERT_BASE64 != '' && env.WINDOWS_SIGNING_CERT_PASSWORD != '' }}
         run: |
           Compress-Archive -Path dist\CyberRed\* -DestinationPath dist\CyberRed-windows.zip -Force
           $files = @("dist\CyberRed-windows.zip", "dist\CyberRedSetup.exe")
